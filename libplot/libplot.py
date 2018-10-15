@@ -6,26 +6,35 @@ Created on Thu May 31 17:15:07 2018
 @author: antony
 """
 import matplotlib
-matplotlib.use('agg')
+import os
+#matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import matplotlib_venn as mpv
 
 ALPHA = 0.8
 MARKER_SIZE = 10
+BLACK_RGB = (0, 0, 0)
 
 TRANS_GRAY = (0.5, 0.5, 0.5, 0.5)
 
 BLUES = sns.color_palette('Blues', 8)[2:]
 GREENS = sns.color_palette('Greens', 8)[2:]
 
+DEFAULT_WIDTH = 8
+DEFAULT_HEIGHT = 8
+
+FONT_PATH = '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf'
 
 def setup():
-  fontpath = '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf' #fontpath = '/ifs/scratch/cancer/Lab_RDF/abh2138/scRNA/analysis/Arial.ttf'
-  prop = matplotlib.font_manager.FontProperties(fname=fontpath)
-  
+  if os.path.exists(FONT_PATH):
+      prop = matplotlib.font_manager.FontProperties(fname=FONT_PATH)
+      matplotlib.rcParams['font.family'] = prop.get_name()
+  else:
+      matplotlib.rcParams['font.family'] = 'Arial' #prop.get_name()
+      
   matplotlib.rcParams['axes.unicode_minus'] = False
-  matplotlib.rcParams['font.family'] = prop.get_name()
   matplotlib.rcParams['font.size'] = 14 
   matplotlib.rcParams['mathtext.default'] = 'regular'
   
@@ -38,16 +47,18 @@ def setup():
 
 def new_ax(fig, *args, **kwargs):
     zorder = kwargs.get('zorder', 1)
+    sharex = kwargs.get('sharex', None)
+    sharey = kwargs.get('sharey', None)
     
     if len(args) == 3:
-        ax = fig.add_subplot(args[0], args[1], args[2], zorder=zorder)
+        ax = fig.add_subplot(args[0], args[1], args[2], zorder=zorder, sharex=sharex, sharey=sharey)
     else:
         subplot = kwargs.get('subplot', '111')
         
         if type(subplot) is tuple:
-            ax = fig.add_subplot(subplot[0], subplot[1], subplot[2], zorder=zorder)
+            ax = fig.add_subplot(subplot[0], subplot[1], subplot[2], zorder=zorder, sharex=sharex, sharey=sharey)
         else:
-            ax = fig.add_subplot(subplot, zorder=zorder)
+            ax = fig.add_subplot(subplot, zorder=zorder, sharex=sharex, sharey=sharey)
   
     format_axes(ax)
     
@@ -99,59 +110,111 @@ def polar_clock_ax(fig, subplot=111):
 def savefig(fig, out, pad=2, dpi=300):
   fig.tight_layout(pad=pad) #rect=[o, o, w, w])
   plt.savefig(out, dpi=dpi)
-  
 
-def base_boxplot(df, x_label=None, y_label=None, hue=None, width=0.1, color=BLUES[0], linewidth=1.5, fliersize=2, orient='v', ax=None):
+def hex_to_RGBA(h):
+    if isinstance(h, tuple):
+        return h
+    if isinstance(h, str):
+        h = h.replace('#', '')
+                      
+        if len(h) == 8:
+            return tuple(int(h[i:i+2], 16) for i in (0, 2 ,4, 6))
+        else:
+            return tuple(int(h[i:i+2], 16) for i in (0, 2 ,4))
+    else:
+        return BLACK_RGB
+                  
+def hex_to_rgba(h):
+    if isinstance(h, tuple):
+        return h
+    if isinstance(h, str):
+        return tuple(x / 255 for x in hex_to_RGBA(h))
+    else:
+        return BLACK_RGB
+
+def parse_colors(colors):
+    return [hex_to_rgba(c) for c in colors]
+    
+def swarmplot(df, x=None, y=None, hue=None, width=0.1, colors=BLUES, linewidth=0, size=2, orient='v', tint=0, ax=None):
+    if ax is None:
+        fig, ax = new_fig()
+        
+    colors = parse_colors(colors)
+    colors = get_tint(colors, tint)
+    
+    print(colors)
+      
+    sns.swarmplot(x=x, y=y, hue=hue, data=df, palette=colors, size=size, linewidth=linewidth, orient="v", ax=ax)
+      
+    return ax
+
+def base_boxplot(df, x=None, y=None, hue=None, width=0.1, colors=BLUES, linewidth=1.5, fliersize=2, orient='v', tint=0, ax=None):
     if ax is None:
         fig, ax = new_fig()
       
-    sns.boxplot(x=x_label, y=y_label, hue=hue, data=df, width=width, fliersize=fliersize, color=color, linewidth=linewidth, orient="v", saturation=1, ax=ax)
-          
+    #sns.boxplot(x=x, y=y, hue=hue, data=df, width=width, fliersize=fliersize, color=color, linewidth=linewidth, orient="v", saturation=1, ax=ax)
+    
+    colors = parse_colors(colors)
+    
+    colors = get_tint(colors, tint)
+    
+    print(colors)
+    
+    sns.boxplot(x=x, y=y, hue=hue, data=df, width=width, palette=colors, fliersize=fliersize, linewidth=linewidth, orient="v", saturation=1, ax=ax)
+      
     for i in range(0, len(ax.lines)):
+        color = colors[i // 6]
+
         line = ax.lines[i]
-        #c = colors[i // 6]
         line.set_color(color)
-        line.set_mfc(color)
-        line.set_mec(color)
+        line.set_markerfacecolor(color)
+        line.set_markeredgecolor(color)
         line.set_solid_capstyle('butt')
         
         # Change the outlier style
         if i % 6 == 5:
             line.set_marker('o')
       
-        for i in range(4, len(ax.lines), 6):      
-            ax.lines[i].set_color('white')
-      
-        for i in range(0, len(ax.artists)):
-            ax.artists[i].set_facecolor(color)
-            ax.artists[i].set_edgecolor(color)
+    for i in range(4, len(ax.lines), 6):      
+        ax.lines[i].set_color('white')
+     
+    #print(len(ax.artists))
+    
+    for i in range(0, len(ax.artists)):
+        color = colors[i]
+        ax.artists[i].set_facecolor(color)
+        ax.artists[i].set_edgecolor(color)
             
     return ax
 
 
-def boxplot(df, x_label=None, y_label=None, hue=None, width=0.1, color=BLUES[0], linewidth=1.5, fliersize=2, orient='v', ax=None):
-    ax = base_boxplot(x_label=x_label, y_label=y_label, hue=hue, df=df, width=width, color=color, linewidth=linewidth, fliersize=fliersize, orient=orient, ax=ax)
+def boxplot(df, x=None, y=None, hue=None, width=0.1, colors=BLUES, linewidth=1.5, fliersize=2, orient='v', tint=0, ax=None):
+    ax = base_boxplot(x=x, y=y, hue=hue, df=df, width=width, colors=colors, linewidth=linewidth, fliersize=fliersize, orient=orient, tint=tint, ax=ax)
       
-    format_axes(ax)
+    format_axes(ax, x=x, y=y)
       
     return ax
 
 
-
-def base_violinplot(df, x_label=None, y_label=None, hue=None, width=0.4, color=BLUES[0], ax=None):
+def base_violinplot(df, x=None, y=None, hue=None, width=0.4, colors=BLUES[0], tint=0, ax=None):
     if ax is None:
         fig, ax = new_fig()
+        
+    colors = parse_colors(colors)
+    colors=get_tint(colors, tint)
+    print(colors)
     
-    sns.violinplot(x=x_label, y=y_label, hue=hue, data=df, width=width, color=tint(color, 0.5), linewidth=0, orient="v", saturation=1, ax=ax)
+    sns.violinplot(x=x, y=y, hue=hue, data=df, width=width, palette=colors, linewidth=0, orient='v', saturation=1, ax=ax)
       
-    format_axes(ax)
+    format_axes(ax, x=x, y=y)
       
     return ax
 
-def violinplot(df, x_label=None, y_label=None, hue=None, width=0.4, color=BLUES[0], ax=None):
-    ax = base_violinplot(df, x_label=x_label, y_label=y_label, hue=hue, width=width, color=color, ax=ax)
+
+def violinplot(df, x=None, y=None, hue=None, width=0.4, colors=BLUES[0], tint=0, ax=None):
+    ax = base_violinplot(df, x=x, y=y, hue=hue, width=width, colors=colors, tint=tint, ax=ax)
       
-    format_axes(ax)
+    format_axes(ax, x=x, y=y)
       
     return ax
 
@@ -193,6 +256,34 @@ def plot(x, y, s=MARKER_SIZE, c=None, alpha=ALPHA, fig=None, ax=None, label=''):
     
     return fig, ax, gcf
 
+
+def venn2(s1, s2, l1, l2, fig=None, ax=None):
+    if ax is None:
+        fig, ax = new_fig()
+    
+    if not isinstance(s1, set):
+        s1 = set(s1)
+        
+    if not isinstance(s2, set):
+        s2 = set(s2)
+    
+    v = mpv.venn2([s1, s2], set_labels = (l1, l2), ax=ax)
+    
+    v.get_patch_by_id('10').set_alpha(0.25)
+    v.get_patch_by_id('10').set_color('#2ca05a')
+    v.get_label_by_id('10').set_color('#2ca05a')
+    
+    v.get_patch_by_id('11').set_alpha(0.25)
+    v.get_patch_by_id('11').set_color('#165044')
+    v.get_label_by_id('11').set_color('white')
+    
+    
+    
+    v.get_patch_by_id('01').set_alpha(0.25)
+    v.get_patch_by_id('01').set_color('#2c5aa0')
+    v.get_label_by_id('01').set_color('#2c5aa0')
+    
+    return fig, ax, v
 
 def invisible_axes(ax):
     """
@@ -255,9 +346,29 @@ def pol2cart(theta, rho):
     return (x, y)
 
 
-def tint(color, t):
-    r = max(0, min(1, (color[0] + (1 - color[0]) * t)))
-    g = max(0, min(1, (color[1] + (1 - color[1]) * t)))
-    b = max(0, min(1, (color[2] + (1 - color[2]) * t)))
-    
-    return (r, g, b)
+def get_tint(colors, t):
+    if isinstance(colors, tuple):
+        r = max(0, min(1, (colors[0] + (1 - colors[0]) * t)))
+        g = max(0, min(1, (colors[1] + (1 - colors[1]) * t)))
+        b = max(0, min(1, (colors[2] + (1 - colors[2]) * t)))
+        
+        if len(colors) == 4:
+            return (r, g, b, colors[3])
+        else:
+            return (r, g, b)
+    elif isinstance(colors, list):
+        ret = []
+        
+        for color in colors:
+            r = max(0, min(1, (color[0] + (1 - color[0]) * t)))
+            g = max(0, min(1, (color[1] + (1 - color[1]) * t)))
+            b = max(0, min(1, (color[2] + (1 - color[2]) * t)))
+            
+            if len(color) == 4:
+                ret.append((r, g, b, color[3]))
+            else:
+                ret.append((r, g, b))
+            
+        return ret
+    else:
+        return colors
