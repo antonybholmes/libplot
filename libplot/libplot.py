@@ -27,6 +27,10 @@ GREENS = sns.color_palette('Greens', 8)[2:]
 DEFAULT_WIDTH = 8
 DEFAULT_HEIGHT = 8
 
+NORM_3 = matplotlib.colors.Normalize(vmin=-3, vmax=3, clip=True)
+NORM_2_5 = matplotlib.colors.Normalize(vmin=-2.5, vmax=2.5, clip=True)
+
+
 FONT_PATH = '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf'
 
 def setup():
@@ -67,12 +71,13 @@ def invisible_axes(ax):
         Matplotlib ax object.
     """
     
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['bottom'].set_visible(False)
-    ax.spines['left'].set_visible(False)
+#    ax.xaxis.set_visible(False)
+#    ax.yaxis.set_visible(False)
+#    ax.spines['right'].set_visible(False)
+#    ax.spines['top'].set_visible(False)
+#    ax.spines['bottom'].set_visible(False)
+#    ax.spines['left'].set_visible(False)
+    ax.axis('off')
 
 def new_ax(fig, subplot=(1,1,1), zorder=1, root_ax=None, sharex=None, sharey=None, direction='in'):
     if isinstance(subplot, str):
@@ -295,11 +300,11 @@ def violinboxplot(df, x=None, y=None, hue=None, width=0.6, colors=BLUES, fig=Non
     return fig
 
 
-def scatter(x, y, s=MARKER_SIZE, c=None, cmap=None, norm=None, alpha=ALPHA, marker='o', fig=None, ax=None, label=None):
+def scatter(x, y, s=MARKER_SIZE, c=None, cmap=None, norm=None, alpha=ALPHA, marker='o', edgecolors='none', fig=None, ax=None, label=None):
     if ax is None:
         fig, ax = new_fig()
         
-    ax.scatter(x, y, s=s, color=c, cmap=cmap, norm=norm, marker=marker, alpha=alpha, label=label)
+    ax.scatter(x, y, s=s, color=c, cmap=cmap, norm=norm, marker=marker, alpha=alpha, label=label, edgecolors=edgecolors)
     
     return fig, ax
 
@@ -400,6 +405,9 @@ def pol2cart(theta, rho):
 
 
 def get_tint(colors, t):
+    if isinstance(colors, str) and colors.startswith('#'):
+        colors = hex_to_rgb(colors)
+        
     if isinstance(colors, tuple):
         r = max(0, min(1, (colors[0] + (1 - colors[0]) * t)))
         g = max(0, min(1, (colors[1] + (1 - colors[1]) * t)))
@@ -426,7 +434,75 @@ def get_tint(colors, t):
     else:
         return colors
     
+
+def whiten(colors, t):
+    """
+    Add white to a color
     
+    Parameters
+    ----------
+    colors : str or list or tuple
+        Color(s) to whiten
+    t : float
+        Fraction of white to add
+        
+    Returns
+    -------
+    tuple or list of tuples
+        New colors
+    """
+    
+    # If color is hex color, covert to rgb tuple
+    if isinstance(colors, str) and colors.startswith('#'):
+        colors = hex_to_rgb(colors)
+    
+    if isinstance(colors, tuple):
+        r = max(0, min(1, (colors[0] + t)))
+        g = max(0, min(1, (colors[1] + t)))
+        b = max(0, min(1, (colors[2] + t)))
+        
+        if len(colors) == 4:
+            return (r, g, b, colors[3])
+        else:
+            return (r, g, b)
+    elif isinstance(colors, list):
+        ret = []
+        
+        for color in colors:
+            r = max(0, min(1, (color[0] + t)))
+            g = max(0, min(1, (color[1] + t)))
+            b = max(0, min(1, (color[2] + t)))
+            
+            if len(color) == 4:
+                ret.append((r, g, b, color[3]))
+            else:
+                ret.append((r, g, b))
+            
+        return ret
+    else:
+        return colors
+    
+
+def hex_to_RGB(hexstr):
+    """
+    Convert hex to rgb.
+    """
+
+    hexstr = hexstr.strip('#')
+
+    r, g, b = int(hexstr[:2], 16), int(hexstr[2:4], 16), int(hexstr[4:], 16)
+    
+    return (r, g, b)
+
+
+def hex_to_rgb(hexstr):
+    """
+    Convert hex to rgb.
+    """
+
+    r, g, b = hex_to_RGB(hexstr)
+    
+    return (r / 255, g / 255, b / 255)
     
 def bin_data(x, y, bins=100):
     ys = np.empty(0)
