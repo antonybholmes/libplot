@@ -30,8 +30,16 @@ DEFAULT_HEIGHT = 8
 NORM_3 = matplotlib.colors.Normalize(vmin=-3, vmax=3, clip=True)
 NORM_2_5 = matplotlib.colors.Normalize(vmin=-2.5, vmax=2.5, clip=True)
 
+NORM_STD_1 = matplotlib.colors.Normalize(vmin=0, vmax=1, clip=True)
+
+# #0066cf
+BWR_CMAP = matplotlib.colors.LinearSegmentedColormap.from_list('bwr', ['#0066cf', '#ffffff', '#ff0000'])
+BWR2_CMAP = matplotlib.colors.LinearSegmentedColormap.from_list('bwr', ['#002266', '#ffffff', '#ff0000'])
+BWR3_CMAP = matplotlib.colors.LinearSegmentedColormap.from_list('bwr', ['#0044aa', '#ffffff', '#ff2a2a'])
+
 
 FONT_PATH = '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf'
+ARIAL_FONT_PATH = FONT_PATH
 
 def setup():
   if os.path.exists(FONT_PATH):
@@ -43,6 +51,7 @@ def setup():
   matplotlib.rcParams['axes.unicode_minus'] = False
   matplotlib.rcParams['font.size'] = 14 
   matplotlib.rcParams['mathtext.default'] = 'regular'
+  matplotlib.rcParams['image.cmap'] = 'jet'
   
   sns.set(font="Arial")
   sns.axes_style({'font.family': ['sans-serif'], 'font.sans-serif': ['Arial']})
@@ -98,7 +107,6 @@ def new_ax(fig, subplot=(1,1,1), zorder=1, root_ax=None, sharex=None, sharey=Non
     ax.patch.set_alpha(0)
     
     if root_ax is not None:
-        
         invisible_axes(ax)
     else:
         format_axes(ax, direction=direction)
@@ -160,9 +168,10 @@ def format_legend(ax, cols=6, markerscale=None):
 
 
 
-def savefig(fig, out, pad=2, dpi=300):
+def savefig(fig, out, pad=0, dpi=300):
   fig.tight_layout(pad=pad) #rect=[o, o, w, w])
-  plt.savefig(out, dpi=dpi)
+  plt.savefig(out, dpi=dpi, transparent=True)
+
 
 def hex_to_RGBA(h):
     if isinstance(h, tuple):
@@ -259,7 +268,7 @@ def base_violinplot(df, x=None, y=None, hue=None, width=0.4, colors=BLUES, tint=
     
     sns.violinplot(x=x, y=y, hue=hue, data=df, width=width, palette=colors, linewidth=0, orient='v', saturation=1, ax=ax)
       
-    format_axes(ax, x=x, y=y)
+    #format_axes(ax, x=x, y=y)
     
     ax.tick_params(axis='x',which='minor',bottom='off')
       
@@ -273,7 +282,7 @@ def violinplot(df, x=None, y=None, hue=None, width=0.4, colors=BLUES, tint=0, ax
       
     return fig, ax
 
-def violinboxplot(df, x=None, y=None, hue=None, width=0.6, colors=BLUES, fig=None, wf=1.5):
+def violinboxplot(df, x=None, y=None, hue=None, width=0.6, colors=BLUES, fig=None, wf=1.5, ax=None):
     if fig is None:
         if x is not None:
             w = np.unique(df[x]).size
@@ -284,27 +293,50 @@ def violinboxplot(df, x=None, y=None, hue=None, width=0.6, colors=BLUES, fig=Non
         w *= wf
         
         fig = new_base_fig(w=w, h=6)
-        
-    ax = new_ax(fig)
+    
+    if ax is None:
+        ax = new_ax(fig)
     
     base_violinplot(df, x=x, y=y, hue=hue, width=width, colors=colors, tint=0.5, ax=ax)
     
-    format_axes(ax, x=x, y=y)
+    #format_axes(ax, x=x, y=y)
     
-    ax2 = new_ax(fig, root_ax=ax)
+    ax2 = new_ax(fig, root_ax=ax, direction='out')
     
-    base_boxplot(df, x=x, y=y, hue=hue, width=width/4, colors=colors, ax=ax2)
+    base_boxplot(df, x=x, y=y, hue=hue, width=width/8, colors=colors, ax=ax2)
       
     #invisible_axes(ax2)
       
     return fig
 
 
-def scatter(x, y, s=MARKER_SIZE, c=None, cmap=None, norm=None, alpha=ALPHA, marker='o', edgecolors='none', fig=None, ax=None, label=None):
+def scatter(x, 
+            y, 
+            s=MARKER_SIZE, 
+            c=None, 
+            cmap=None, 
+            norm=None, 
+            alpha=None, 
+            marker='o', 
+            edgecolors='none', 
+            linewidth=0.25,
+            fig=None, 
+            ax=None, 
+            label=None):
     if ax is None:
         fig, ax = new_fig()
         
-    ax.scatter(x, y, s=s, color=c, cmap=cmap, norm=norm, marker=marker, alpha=alpha, label=label, edgecolors=edgecolors)
+    ax.scatter(x, 
+               y, 
+               s=s, 
+               color=c, 
+               cmap=cmap, 
+               norm=norm, 
+               marker=marker, 
+               alpha=alpha, 
+               label=label, 
+               edgecolors=edgecolors,
+               linewidth=linewidth)
     
     return fig, ax
 
@@ -372,7 +404,7 @@ def venn2(s1, s2, l1, l2, fig=None, ax=None):
 
 
 def add_colorbar(fig, cmap, x1=None, x2=None, norm=None):
-    cax = fig.add_axes([0.8, 0.1, 0.15, 0.02], zorder=100)
+    cax = fig.add_axes([0.8, 0.05, 0.15, 0.02], zorder=100)
     cb = matplotlib.colorbar.ColorbarBase(cax, cmap=cmap, ticks=[0, 1.0], orientation='horizontal')
     
     if x1 is None:
